@@ -1,0 +1,21 @@
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: never
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/llaqtamasi_ayni?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true}
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:1234}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+app:
+  jwt-secret: ${JWT_SECRET:mi_clave_secreta_super_segura_para_desarrollo_local_12345}
+  cors-origins: ${CORS_ORIGINS:http://localhost:4200,http://localhost:8100}
+  avales-requeridos: 2
+  chat-retencion-dias: 7
+  bootstrap:
+    login: ${ADMIN_LOGIN:}
+    password: ${ADMIN_PASSWORD:}

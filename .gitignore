@@ -1,0 +1,8 @@
+target/
+.tools/
+maven.zip
+.env
+*.log
+.test-mysql/
+.test-mysql-live/
+.test-mysql-final/
