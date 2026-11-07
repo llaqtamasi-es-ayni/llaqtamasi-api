@@ -38,7 +38,7 @@ public class SecurityConfig {
                 .anyRequest().authenticated())
             .oauth2ResourceServer(o -> o.jwt(j -> {})).build();
     }
-    @Bean CorsConfigurationSource cors(@Value("${app.cors-origins}") String origins) {
+    @Bean CorsConfigurationSource corsConfigurationSource(@Value("${app.cors-origins}") String origins) {
         var config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(origins.split(",")));
         config.setAllowedMethods(List.of("GET","POST","PATCH","PUT","DELETE","OPTIONS"));
