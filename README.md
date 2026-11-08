@@ -1,36 +1,265 @@
-# Backend de Llaqtamasi es Ayni
+# Llaqtamasi es Ayni
 
-API de Java 21, Spring Boot 4.0.9 y MySQL 8.4. Incluye el esquema aprobado de 19 tablas, acceso JWT, perfiles, confianza, solicitudes, mensajeria, muro, reportes, centros, roles y sincronizacion.
+Red vecinal de confianza para el Cercado de Arequipa. Conecta a vecinos, servicios y centros de ayuda, y hace visible quién cuenta con el respaldo de su comunidad.
 
-## Arranque en Windows
+Esta guía instala el sistema completo en una computadora con Windows y recorre sus funciones con datos de prueba. Toma unos 20 minutos, según la conexión.
 
-1. Abre MySQL Workbench y ejecuta `database/crear.sql` en una base nueva. Si ya tienes las 19 tablas, usa esa base directamente. Si tienes la version inicial de 17 tablas, ejecuta una sola vez `database/actualizar-17-tablas.sql`.
-2. Abre PowerShell en esta carpeta.
-3. Configura las variables siguientes con tus credenciales de MySQL y una cuenta administradora nueva.
-4. Ejecuta el archivo JAR.
+## Qué permite hacer
+
+| Función | Descripción |
+|---|---|
+| **Mapa de centros de ayuda** | Comedores, ollas comunes, salud, comisarías y centros de acopio, con filtro por tipo |
+| **Cadena de favores** | Avisos de "ofrezco" y "necesito", con conversación privada entre vecinos |
+| **Directorio vecinal** | Servicios y locales de la zona, con solicitudes y reputación |
+| **Visto Bueno Vecinal** | Una cuenta se verifica con el aval de dos vecinos ya verificados |
+| **Reportes comunitarios** | Incidentes con lugar y vigencia, que otros vecinos confirman o desmienten |
+| **Modo emergencia** | Tema de fondo negro para toda la aplicación, que ahorra batería en pantallas OLED |
+
+## Componentes
+
+| Componente | Tecnología | Repositorio |
+|---|---|---|
+| Aplicación | Angular, Ionic, Capacitor | [llaqtamasi-client](https://github.com/llaqtamasi-es-ayni/llaqtamasi-client) |
+| API | Java 21, Spring Boot | [llaqtamasi-api](https://github.com/llaqtamasi-es-ayni/llaqtamasi-api) |
+| Base de datos | MySQL | `database/` en el repositorio de la API |
+
+## 1. Requisitos
+
+Instala lo siguiente, si aún no lo tienes:
+
+| Programa | Versión | Instalación en PowerShell |
+|---|---|---|
+| Git | Reciente | `winget install Git.Git` |
+| JDK | 21 | `winget install EclipseAdoptium.Temurin.21.JDK` |
+| Node.js | LTS | `winget install OpenJS.NodeJS.LTS` |
+| MySQL Server | 8.0 o posterior | [Instalador oficial](https://dev.mysql.com/downloads/installer/) |
+
+Durante la instalación de MySQL, anota la contraseña que definas para `root`. Después de instalar, cierra y vuelve a abrir PowerShell.
+
+Esta guía se comprobó en Windows 10 con JDK 21, Node.js 24, MySQL 8.0 y Chrome. El mapa necesita internet.
+
+## 2. Instalación
+
+### 2.1 Descargar el código
 
 ```powershell
-$env:DB_URL='jdbc:mysql://localhost:3306/llaqtamasi_ayni?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true'
-$env:DB_USER='tu_usuario_mysql'
-$env:DB_PASSWORD='tu_clave_mysql'
-$env:JWT_SECRET='reemplaza-por-un-secreto-aleatorio-de-al-menos-32-bytes'
-$env:ADMIN_LOGIN='administrador'
-$env:ADMIN_PASSWORD='reemplaza-por-una-clave-de-12-o-mas-caracteres'
-$env:CORS_ORIGINS='http://localhost:4200,http://localhost:8100'
-java -jar .\target\backend-1.0.0.jar
+cd C:\
+mkdir llaqtamasi
+cd llaqtamasi
+git clone -b feature/v2 https://github.com/llaqtamasi-es-ayni/llaqtamasi-api.git
+git clone https://github.com/llaqtamasi-es-ayni/llaqtamasi-client.git
 ```
 
-La API queda en `http://localhost:8080/api` y el WebSocket en `ws://localhost:8080/ws`. Comprueba el arranque con `GET /api/salud`.
+### 2.2 Crear la base de datos
 
-Conserva el mismo JWT_SECRET entre reinicios para mantener validos los tokens emitidos. Se puede generar un secreto aleatorio con PowerShell 7.
+El archivo `database/datos-prueba.sql` crea la base `llaqtamasi_ayni` con su estructura completa y los datos de prueba. `actualizar-vigencias.sql` renueva los avisos y reportes, que vencen con el tiempo.
 
 ```powershell
-[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
+cd C:\llaqtamasi\llaqtamasi-api
+$mysql = 'C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe'
+cmd /c "`"$mysql`" -u root -p --binary-mode --default-character-set=utf8mb4 < database\datos-prueba.sql"
+cmd /c "`"$mysql`" -u root -p --default-character-set=utf8mb4 < database\actualizar-vigencias.sql"
 ```
 
-ADMIN_LOGIN y ADMIN_PASSWORD crean una cuenta nueva, activa, verificada y con rol ADMIN. Si el nombre de acceso ya existe, el arranque conserva esa cuenta y sus permisos. Una vez creada, puedes quitar ambas variables para los siguientes arranques.
+Cada comando pide la contraseña de `root`. Si tienes otra versión de MySQL, ajusta la ruta de `$mysql`.
 
-Los datos de prueba usados durante la verificacion se guardaron en una instancia temporal separada. Debes configurar tu propia conexion para utilizar la app.
+> **Importante:** si ya existe una base `llaqtamasi_ayni`, sus tablas se reemplazan.
+
+Para comprobarlo, este comando debe responder `7`:
+
+```powershell
+& $mysql -u root -p -N -e "SELECT COUNT(*) FROM llaqtamasi_ayni.usuario;"
+```
+
+### 2.3 Iniciar la API
+
+En la misma ventana de PowerShell, reemplaza `TU_CLAVE_DE_MYSQL` por tu contraseña de `root`:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\preparar.ps1
+.\mvnw.cmd "-Dmaven.repo.local=$PWD\.tools\repository" clean package
+
+$env:DB_USER = 'root'
+$env:DB_PASSWORD = 'TU_CLAVE_DE_MYSQL'
+$env:JWT_SECRET = 'clave-local-de-evaluacion-de-al-menos-32-bytes'
+.\iniciar.ps1
+```
+
+La primera compilación descarga dependencias y tarda varios minutos. Si Maven indica que falta `JAVA_HOME`, defínelo con la ruta de tu JDK antes de compilar. Por ejemplo:
+
+```powershell
+$env:JAVA_HOME = 'C:\Program Files\Eclipse Adoptium\jdk-21.0.13.9-hotspot'
+```
+
+La API está lista cuando la ventana muestra `Started Application`. Para comprobarlo, abre <http://localhost:8080/api/salud>, que debe responder `{"estado":"OK"}`. Las demás rutas requieren iniciar sesión, así que en el navegador responden con un error 401.
+
+Deja esta ventana abierta.
+
+### 2.4 Iniciar la aplicación
+
+En una **ventana nueva** de PowerShell:
+
+```powershell
+cd C:\llaqtamasi\llaqtamasi-client
+npm install
+npm start
+```
+
+Cuando termine, abre <http://localhost:4200>. Si `npm install` falla por un error de red como `ECONNRESET`, vuelve a ejecutarlo.
+
+### 2.5 Volver a iniciar el sistema
+
+Después de la instalación solo hacen falta dos ventanas de PowerShell:
+
+```powershell
+# Ventana 1: API
+cd C:\llaqtamasi\llaqtamasi-api
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+$env:DB_USER = 'root'
+$env:DB_PASSWORD = 'TU_CLAVE_DE_MYSQL'
+$env:JWT_SECRET = 'clave-local-de-evaluacion-de-al-menos-32-bytes'
+.\iniciar.ps1
+```
+
+```powershell
+# Ventana 2: aplicación
+cd C:\llaqtamasi\llaqtamasi-client
+npm start
+```
+
+## 3. Cuentas de prueba
+
+Todas estas cuentas usan la contraseña **`Abc123456789`**:
+
+| Usuario | Nombre visible | Estado | Uso en las pruebas |
+|---|---|---|---|
+| `admin` | Administracion | Verificada, rol administrador | Atiende las solicitudes del "Taller de Vehiculos" |
+| `demo_android` | Administracion | Verificada, rol administrador | Cuenta adicional con historial de solicitudes y votos |
+| `luis123` | Lucho Fernandez | Verificada | Da avales, publica avisos, servicios y reportes |
+| `lionel123` | Lionel Messi | Sin verificar | Recibe avales hasta verificarse |
+| `gus123` | Gustavo Cerati | Sin verificar | Responde avisos y solicita servicios |
+
+Los perfiles "Reparaciones del Cercado" y "Tienda vecinal" pertenecen a cuentas de directorio que no permiten iniciar sesión.
+
+> **Seguridad:** estas credenciales son públicas y sirven solo para evaluar el sistema en una computadora local. No uses estos datos ni el `JWT_SECRET` de esta guía en un servidor accesible desde internet.
+
+## 4. Probar las funciones
+
+Varias pruebas necesitan dos cuentas a la vez. Cada pestaña del navegador mantiene su propia sesión, así que basta con abrir una pestaña por cuenta. Recargar la página cierra la sesión de esa pestaña.
+
+### 4.1 Mapa de centros de ayuda
+
+**Cuenta:** `luis123`
+
+1. Entra a la pestaña **Mapa**. Debes ver cuatro pines. El color indica la familia del centro y el icono, su tipo.
+2. En **Tipo de centro**, elige **Salud**. Debe quedar un solo pin y el mensaje "Centros visibles: 1".
+3. Vuelve a elegir **Todos** y toca un pin para ver su ficha.
+
+### 4.2 Visto Bueno Vecinal
+
+**Cuentas:** `lionel123`, `luis123` y `admin`
+
+1. Con `lionel123`, abre **Perfil**. Debe decir "Cuenta sin verificar". En **Reportes** aparece "Solo las cuentas verificadas pueden crear reportes."
+2. Con `luis123`, en **Perfil**, pulsa **Recomendar vecino**, busca `lionel` y pulsa **Dar aval**.
+3. Repite el paso anterior con `admin`.
+4. Con `lionel123`, sal de **Perfil** y vuelve a entrar. Ahora debe decir "Cuenta verificada" y ya puede crear reportes.
+
+### 4.3 Cadena de favores
+
+**Cuentas:** `luis123` y `gus123`
+
+1. Con `luis123`, en **Muro**, pulsa **+ Publicar**. Deja "Aviso vecinal", elige **Necesito**, completa el asunto y la descripción, y pulsa **Publicar**.
+2. Con `gus123`, en **Muro**, pulsa **Actualizar**, abre el aviso con **Ver aviso** y envía un mensaje. Una cuenta sin verificar también puede responder.
+3. Con `luis123`, abre el mismo aviso. En "Respuestas a este aviso", entra a la conversación con Gustavo Cerati y contesta.
+
+Al terminar, usa **← Volver al Muro**: la pestaña Muro conserva abierto el último aviso.
+
+### 4.4 Directorio y reputación
+
+**Cuentas:** `gus123` y `admin`
+
+1. Con `gus123`, en **Muro**, busca "Taller de Vehiculos". Debe mostrar **3.00/5 · Votos: 3**.
+2. Pulsa **Solicitar**, escribe un mensaje y pulsa **Enviar solicitud**. Una cuenta sin verificar puede solicitar a una tienda, pero no a un servicio.
+3. Con `admin`, en **Perfil**, pulsa **Actualizar** en "Mis solicitudes". En la solicitud recibida, pulsa **Aceptar** y luego **Finalizar**.
+4. Con `admin`, elige una nota en **Calificar al vecino** y pulsa **Guardar calificación**.
+5. Con `gus123`, en **Perfil**, pulsa **Actualizar**, elige una nota en **Calificar perfil** y pulsa **Guardar voto**.
+6. En **Muro**, pulsa **Actualizar**. La reputación cambia: con 5 estrellas, pasa a **3.14/5 · Votos: 4**.
+
+La reputación empieza en 3 y se calcula como `(30 + suma de estrellas) / (10 + número de votos)`, así que un solo voto no la altera demasiado.
+
+### 4.5 Publicar un servicio
+
+**Cuentas:** `luis123` y `gus123`
+
+1. Con `luis123`, en **Muro**, pulsa **+ Publicar** y elige **Servicio calificable**.
+2. Elige la categoría, escribe la descripción y pulsa **Publicar**.
+3. Con `gus123`, en **Muro**, pulsa **Actualizar**. El servicio debe aparecer con la opción **Solicitar**.
+
+Solo las cuentas verificadas pueden publicar servicios.
+
+### 4.6 Reportes comunitarios
+
+**Cuentas:** `luis123`, `gus123` y `admin`
+
+1. Con `luis123`, en **Reportes**, pulsa **+ Nuevo reporte**, pulsa **Elegir en el mapa** y toca un lugar. Debe aparecer "Punto seleccionado."
+2. Escribe la descripción y pulsa **Publicar**. El autor no ve las opciones para confirmar su propio reporte.
+3. Con `gus123`, en **Reportes**, pulsa **Actualizar** y luego **Confirmar**. El contador de confirmaciones sube.
+4. Con `admin`, en **Reportes**, pulsa **Actualizar** y luego **Desmentir**. El contador de desmentidos sube.
+
+### 4.7 Modo emergencia
+
+**Cuenta:** cualquiera
+
+1. En **Reportes**, pulsa **Activar modo emergencia**. La aplicación cambia a fondo negro.
+2. Recorre **Mapa**, **Muro** y **Perfil**: el modo se mantiene en todas las pantallas y el mapa también se oscurece.
+3. Recarga la página: el modo sigue activo, incluso en el inicio de sesión.
+4. Inicia sesión y, en **Reportes**, pulsa **Desactivar modo emergencia**.
+
+El modo se guarda en el navegador, así que afecta a todas las pestañas al recargarlas.
+
+## 5. Restablecer los datos
+
+Las pruebas modifican la base. Para volver al estado inicial, repite los dos comandos de MySQL de la sección [2.2](#22-crear-la-base-de-datos) y reinicia la API.
+
+Si un aviso o un reporte de prueba ya venció, basta con ejecutar de nuevo `actualizar-vigencias.sql`.
+
+## 6. Solución de problemas
+
+| Síntoma | Qué revisar |
+|---|---|
+| La pantalla de inicio de sesión indica que la API no está activa | Que la ventana de la API siga abierta y que <http://localhost:8080/api/salud> responda |
+| "El usuario o la contraseña son incorrectos" | Que uses un usuario de la [sección 3](#3-cuentas-de-prueba) y que la base provenga de `datos-prueba.sql` |
+| La API se detiene al arrancar | Que MySQL esté activo, que `DB_PASSWORD` sea correcta y que el puerto 8080 esté libre |
+| `iniciar.ps1` no se ejecuta | Ejecuta antes `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` |
+| No aparecen avisos o reportes | Ejecuta `actualizar-vigencias.sql` y pulsa **Actualizar** en la pantalla |
+| El mapa se ve en gris | Comprueba la conexión a internet |
+
+## 7. Alcance actual y próximos pasos
+
+Las siguientes capacidades aún no están implementadas:
+
+- Mostrar los reportes en el mapa principal; hoy aparecen en la pestaña Reportes.
+- Dibujar en el mapa las áreas de atención de los servicios y permitir que cada proveedor elija la suya; hoy cubren la zona completa.
+- Mapa y centros de ayuda disponibles sin conexión.
+- Pantallas de administración para zonas, centros y categorías; hoy se gestionan mediante la API.
+
+---
+
+# Referencia técnica de la API
+
+La API queda en `http://localhost:8080/api` y el WebSocket en `ws://localhost:8080/ws`.
+
+Variables de entorno:
+
+| Variable | Obligatoria | Descripción |
+|---|---|---|
+| `DB_USER`, `DB_PASSWORD` | Sí | Credenciales de MySQL |
+| `JWT_SECRET` | Sí | Clave de firma de los tokens, de al menos 32 bytes. Mantenla entre reinicios para que los tokens emitidos sigan siendo válidos |
+| `DB_URL` | No | Conexión JDBC. Por defecto, `llaqtamasi_ayni` en `localhost:3306` |
+| `PORT` | No | Puerto de la API. Por defecto, `8080` |
+| `CORS_ORIGINS` | No | Orígenes permitidos. Por defecto, `http://localhost:4200,http://localhost:8100` |
+| `ADMIN_LOGIN`, `ADMIN_PASSWORD` | No | Crean una cuenta administradora al arrancar, si ese usuario aún no existe. La contraseña debe tener 12 caracteres o más |
 
 ## Compilacion y pruebas
 
