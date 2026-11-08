@@ -60,16 +60,17 @@ public class SolicitudService {
         var row=participant(user,id,true);
         db.allow(user.equals(row.get("proveedor_id")));
         db.require("FINALIZADA".equals(row.get("estado")),"La solicitud debe estar finalizada");
+        String client=(String)row.get("vecino_id");
+        db.userLock(client);
         db.update("""
             INSERT INTO calificacion_vecino(solicitud_id,valor,creada_en) VALUES(?,?,UTC_TIMESTAMP(6))
             ON DUPLICATE KEY UPDATE valor=?,creada_en=UTC_TIMESTAMP(6)
             """,id,value,value);
-        String client=(String)row.get("vecino_id");
-        db.userLock(client);
         Number average=(Number)db.one("""
             SELECT (10.0*3.0+COALESCE(SUM(c.valor),0))/(10.0+COUNT(c.valor)) confianza
             FROM calificacion_vecino c JOIN solicitud s ON s.id=c.solicitud_id WHERE s.vecino_id=?
             """,client).get("confianza");
         db.update("UPDATE usuario SET nivel_confianza=? WHERE id=?",average,client);
+        db.verificarPorCalificaciones(client);
     }
 }

@@ -25,4 +25,19 @@ public class Db {
         if (!condition) throw new ResponseStatusException(FORBIDDEN, "Acceso denegado");
     }
     public void userLock(String id) { one("SELECT id FROM usuario WHERE id=? AND activo=TRUE FOR UPDATE", id); }
+    public void verificarPorCalificaciones(String id) {
+        update("""
+            UPDATE usuario SET verificado=TRUE
+            WHERE id=? AND activo=TRUE AND verificado=FALSE AND (
+                SELECT COUNT(*) FROM (
+                    SELECT v.autor_id evaluador
+                    FROM voto_perfil v JOIN perfil p ON p.id=v.perfil_id WHERE p.usuario_id=?
+                    UNION
+                    SELECT p.usuario_id
+                    FROM calificacion_vecino c JOIN solicitud s ON s.id=c.solicitud_id
+                    JOIN perfil p ON p.id=s.perfil_id WHERE s.vecino_id=? AND s.estado='FINALIZADA'
+                ) calificaciones
+            ) >= 3
+            """,id,id,id);
+    }
 }

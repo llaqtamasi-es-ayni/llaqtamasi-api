@@ -17,11 +17,11 @@ if ($env:ADMIN_PASSWORD.Length -lt 12 -or [Text.Encoding]::UTF8.GetByteCount($en
     throw 'La contraseña debe tener al menos 12 caracteres y ocupar como máximo 72 bytes.'
 }
 $env:JWT_SECRET = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
-$env:PORT = '18080'
-$api = 'http://127.0.0.1:18080/api'
-$listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 18080)
+$env:PORT = '8080'
+$api = "http://127.0.0.1:${env:PORT}/api"
+$listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, [int]$env:PORT)
 try { $listener.Start() }
-catch { throw 'El puerto 18080 está ocupado. Cierra el backend anterior antes de arrancar la demo.' }
+catch { throw "El puerto $env:PORT está ocupado. Cierra el backend anterior antes de arrancar la demo." }
 finally { $listener.Stop() }
 
 $log = Join-Path $PSScriptRoot 'demo.log'

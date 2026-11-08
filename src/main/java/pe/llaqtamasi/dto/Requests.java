@@ -18,18 +18,21 @@ public class Requests {
     public enum TipoCentro { COMEDOR, OLLA_COMUN, ADULTO_MAYOR, NINOS, SALUD, COMISARIA, ACOPIO }
     public record Catalogo(@NotBlank @Size(max=150) String nombre, @Size(max=2000) String descripcion) {}
     public record Perfil(@NotNull UUID id, @NotNull UUID categoriaId, @NotNull TipoPerfil tipo,
-        @NotBlank @Size(max=4000) String descripcion, @NotBlank @Size(max=50000) String areaWkt) {}
+        @NotBlank @Size(max=4000) String descripcion, @NotBlank @Size(max=50000) String areaWkt,
+        @Size(max=150) String nombreEstablecimiento) {}
     public record Visible(boolean visible) {}
     public record Solicitud(@NotNull UUID id, @NotNull UUID perfilId, @NotBlank @Size(max=2000) String mensaje) {}
     public record Estado(@NotNull EstadoSolicitud estado) {}
     public record Mensaje(@NotNull UUID id, @NotBlank @Size(max=4000) String texto) {}
     public record Voto(@Min(1) @Max(5) int valor) {}
     public record Muro(@NotNull UUID id, @NotNull UUID zonaId, @NotNull TipoMuro tipo,
-        @NotBlank @Size(max=150) String categoria, @NotBlank @Size(max=4000) String texto) {}
+        @NotBlank @Size(max=150) String categoria, @NotBlank @Size(max=4000) String texto,
+        @Min(1) @Max(720) Integer duracionHoras) {}
     public record Reporte(@NotNull UUID id, @NotBlank @Size(max=150) String tipo,
-        @DecimalMin("-90") @DecimalMax("90") double lat,
-        @DecimalMin("-180") @DecimalMax("180") double lng,
-        @NotBlank @Size(max=2000) String texto, @Min(1) @Max(24) int duracionHoras) {}
+        @DecimalMin("-90") @DecimalMax("90") Double lat,
+        @DecimalMin(value="-180", inclusive=false) @DecimalMax("180") Double lng,
+        @NotBlank @Size(max=2000) String texto, @Min(1) @Max(24) int duracionHoras,
+        @Size(max=250) String direccion, UUID zonaId) {}
     public record Respuesta(@NotNull Decision decision) {}
     public record Zona(@NotNull UUID id, @NotBlank @Size(max=150) String nombre,
         @NotBlank @Size(max=50000) String limiteWkt) {}

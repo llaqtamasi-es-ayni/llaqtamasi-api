@@ -29,6 +29,10 @@ public class ApiController {
     public Map<String,String> profile(@AuthenticationPrincipal Jwt jwt,@Valid @RequestBody Perfil p) {
         return Map.of("id",community.profile(access.user(jwt),p));
     }
+    @GetMapping("/zonas/{id}/perfiles")
+    public List<Map<String,Object>> profilesInZone(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID id) {
+        return queries.profilesInZone(jwt,id);
+    }
     @PatchMapping("/perfiles/{id}/visibilidad")
     public void visible(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID id,@RequestBody Visible p) {
         community.visibility(access.user(jwt),id.toString(),p.visible());
@@ -36,6 +40,10 @@ public class ApiController {
     @PostMapping("/usuarios/{id}/avales")
     public void endorse(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID id) {
         community.endorse(access.user(jwt),id.toString());
+    }
+    @GetMapping("/usuarios/para-avalar")
+    public List<Map<String,Object>> vecinosParaAval(@AuthenticationPrincipal Jwt jwt,@RequestParam String q) {
+        return community.vecinosParaAval(access.user(jwt),q);
     }
     @PutMapping("/perfiles/{id}/voto")
     public void vote(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID id,@Valid @RequestBody Voto v) {
@@ -48,6 +56,10 @@ public class ApiController {
     @GetMapping("/solicitudes")
     public List<Map<String,Object>> requests(@AuthenticationPrincipal Jwt jwt) {
         return queries.requests(jwt);
+    }
+    @PutMapping("/solicitudes/{id}/voto")
+    public void voteRequest(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID id,@Valid @RequestBody Voto voto) {
+        community.voteRequest(access.user(jwt),id.toString(),voto.valor());
     }
     @PatchMapping("/solicitudes/{id}")
     public void state(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID id,@Valid @RequestBody Estado state) {
